@@ -1,0 +1,78 @@
+dnl I'd like this to be edited in -*- Autoconf -*- mode...
+dnl
+# serial 2 LIGHTNING_CONFIGURE_IF_NOT_FOUND
+m4_define([LIGHTNING_BACKENDS], [i386 i386:-32 i386:-64 sparc ppc])
+
+AC_DEFUN([LIGHTNING_CONFIGURE_LINKS_PREREQ], [
+lightning_frag=/dev/null
+AC_SUBST_FILE(lightning_frag)])
+
+AC_DEFUN([LIGHTNING_CONFIGURE_LINKS], [
+AC_REQUIRE([LIGHTNING_CONFIGURE_LINKS_PREREQ])
+
+suffix=
+case "$target_cpu" in
+  i?86)  cpu=i386	;;
+  x86_64)  cpu=i386	;;
+  sparc*)  cpu=sparc	;;
+  powerpc) cpu=ppc      ;;
+  *)		        ;;
+esac
+if test -n "$cpu" && test -d "$srcdir/lightning/$cpu"; then
+  $1
+  lightning_frag=`cd $srcdir && pwd`/lightning/$cpu/Makefile.frag
+  test -f $lightning_frag || lightning_frag=/dev/null
+
+  asm_src=lightning/$cpu/asm.h
+  test -f $srcdir/lightning/$cpu/asm$suffix.h && asm_src=lightning/$cpu/asm$suffix.h
+  AC_CONFIG_LINKS(lightning/asm.h:$asm_src, [], [asm_src=$asm_src])
+
+  fp_src=lightning/$cpu/fp.h
+  test -f $srcdir/lightning/$cpu/fp$suffix.h && fp_src=lightning/$cpu/fp$suffix.h
+  AC_CONFIG_LINKS(lightning/fp.h:$fp_src, [], [fp_src=$fp_src])
+
+  core_src=lightning/$cpu/core.h
+  test -f $srcdir/lightning/$cpu/core$suffix.h && core_src=lightning/$cpu/core$suffix.h
+  AC_CONFIG_LINKS(lightning/core.h:$core_src, [], [core_src=$core_src])
+
+  funcs_src=lightning/$cpu/funcs.h
+  test -f $srcdir/lightning/$cpu/funcs$suffix.h && funcs_src=lightning/$cpu/funcs$suffix.h
+  AC_CONFIG_LINKS(lightning/funcs.h:$funcs_src, [], [funcs_src=$funcs_src])
+else
+  $2
+fi
+
+])
+
+AC_DEFUN([LIGHTNING_CONFIGURE_IF_NOT_FOUND], [
+AC_REQUIRE([AC_PROG_LN_S])dnl
+AC_REQUIRE([AC_CANONICAL_HOST])dnl
+
+AC_ARG_WITH(lightning-prefix,
+AS_HELP_STRING([--with-lightning-prefix=PFX], [Prefix where GNU lightning is installed]),
+[], [with_lightning_prefix=])
+saveCFLAGS="$CFLAGS"
+if test "x$with_lightning_prefix" != x; then 
+  INCLIGHTNING="-I${with_lightning_prefix}/include"
+  CFLAGS="$CFLAGS $INCLIGHTNING"
+else
+  INCLIGHTNING=
+fi
+AC_CHECK_HEADER(lightning.h)
+CFLAGS="$saveCFLAGS"
+
+AM_CONDITIONAL(LIGHTNING_MAIN, (exit 1))
+AM_CONDITIONAL(HAVE_INSTALLED_LIGHTNING, test "$ac_cv_header_lightning_h" = yes)
+
+lightning=
+AS_IF([test "$ac_cv_header_lightning_h" = yes],
+  [lightning=yes], 
+  [LIGHTNING_CONFIGURE_LINKS(lightning=yes, lightning=no)])
+
+AS_IF([test "$lightning" = yes], [
+  AC_DEFINE(HAVE_LIGHTNING, 1, [Define if GNU lightning can be used])
+  $1
+], [$2])
+unset lightning
+
+])dnl
